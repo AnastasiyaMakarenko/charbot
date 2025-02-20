@@ -18,19 +18,17 @@ if not TOKEN:
 if not OPENAI_API_KEY:
     raise ValueError("Отсутствует OPENAI_API_KEY. Добавьте его в переменные окружения.")
 
-# Инициализация бота и диспетчера
+# Инициализация бота и OpenAI API
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot)
-
-# Настройка OpenAI API
 openai.api_key = OPENAI_API_KEY
 
-# Клавиатура главного меню
+# Главное меню
 main_menu = ReplyKeyboardMarkup(resize_keyboard=True)
 main_menu.add(KeyboardButton("🛠 Создать персонажа"), KeyboardButton("🔑 Подписка"))
 main_menu.add(KeyboardButton("📁 Мои персонажи"), KeyboardButton("🌍 Язык"))
 
-# Клавиатура после запроса на генерацию
+# Меню генерации
 generation_menu = ReplyKeyboardMarkup(resize_keyboard=True)
 generation_menu.add(KeyboardButton("📝 Уточнять детали в чате"), KeyboardButton("📜 Заполнить анкету"))
 generation_menu.add(KeyboardButton("⬅️ Вернуться в главное меню"))
@@ -56,23 +54,42 @@ async def refine_character(message: types.Message):
     await message.reply("✏️ Введи уточняющие детали.")
 
 @dp.message_handler()
-async def gpt_generate(message: types.Message):
-    user_input = message.text
+async def generate_character(message: types.Message):
+    user_input = message.text.lower()
 
-    await message.reply("🔄 Генерация ответа... Пожалуйста, подождите.")
+    # Если пользователь хочет сгенерировать изображение
+    if any(keyword in user_input for keyword in ["нарисуй", "сгенерируй", "изображение", "арт"]):
+        await message.reply("🎨 Генерирую изображение... Подождите.")
 
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4-turbo",
-            messages=[{"role": "user", "content": user_input}],
-            max_tokens=500
-        )
-        gpt_reply = response["choices"][0]["message"]["content"]
-        await message.reply(f"✅ Вот ваш персонаж:\n\n{gpt_reply}", reply_markup=generation_menu)
+        try:
+            response = openai.Image.create(
+                prompt=user_input,
+                n=1,
+                size="1024x1024"
+            )
+            image_url = response["data"][0]["url"]
+            await message.reply_photo(photo=image_url, caption="✅ Вот ваш персонаж!", reply_markup=generation_menu)
 
-    except Exception as e:
-        logging.error(f"Ошибка при запросе к OpenAI: {e}")
-        await message.reply("⚠️ Произошла ошибка при генерации персонажа. Попробуйте снова.")
+        except Exception as e:
+            logging.error(f"Ошибка при генерации изображения: {e}")
+            await message.reply("⚠️ Ошибка при генерации изображения. Попробуйте снова.")
+
+    # Если пользователь хочет текстовое описание
+    else:
+        await message.reply("🔄 Генерация ответа... Пожалуйста, подождите.")
+
+        try:
+            response = openai.ChatCompletion.create(
+                model="gpt-4-turbo",
+                messages=[{"role": "user", "content": user_input}],
+                max_tokens=500
+            )
+            gpt_reply = response["choices"][0]["message"]["content"]
+            await message.reply(f"✅ Вот ваш персонаж:\n\n{gpt_reply}", reply_markup=generation_menu)
+
+        except Exception as e:
+            logging.error(f"Ошибка при запросе к OpenAI: {e}")
+            await message.reply("⚠️ Произошла ошибка при генерации персонажа. Попробуйте снова.")
 
 if __name__ == "__main__":
     executor.start_polling(dp, skip_updates=True)
