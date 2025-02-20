@@ -53,7 +53,7 @@ async def back_to_main(message: types.Message):
 @dp.message_handler()
 async def process_text_request(message: types.Message):
     text_request = message.text
-    response_text = f"✅ Отлично! Бот предварительная версия персонажа:\n\n🔹 \"{text_request}\""
+    response_text = f"✅ Отлично! Вот предварительная версия персонажа:\n\n🔹 \"{text_request}\""
     await message.reply(response_text, reply_markup=create_menu)
 
 if __name__ == '__main__':
