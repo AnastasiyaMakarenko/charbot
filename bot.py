@@ -1,50 +1,55 @@
-import os
-import logging
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from aiogram.utils import executor
+import os
 
-# Включаем логирование
-logging.basicConfig(level=logging.INFO)
-
-# Получаем токен из переменных среды
+# Получаем токен из переменных окружения
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 if not TOKEN:
-    raise ValueError("Отсутствует TELEGRAM_BOT_TOKEN. Убедитесь, что он добавлен в переменные окружения.")
+    raise ValueError("Отсутствует TELEGRAM_BOT_TOKEN. Добавьте его в переменные окружения.")
 
-# Создаём объекты бота и диспетчера
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot)
 
 # Клавиатура главного меню
 main_menu = ReplyKeyboardMarkup(resize_keyboard=True)
-main_menu.add(KeyboardButton("🆕 Создать персонажа"))
-main_menu.add(KeyboardButton("📁 Мои персонажи"), KeyboardButton("🔑 Подписка"))
-main_menu.add(KeyboardButton("🌍 Язык"))
+main_menu.add(KeyboardButton("✍ Ввести описание"), KeyboardButton("📋 Ответить на вопросы"))
+
+# Клавиатура уточнения после генерации
+refine_menu = ReplyKeyboardMarkup(resize_keyboard=True)
+refine_menu.add(KeyboardButton("✍ Продолжить уточнения текстом"), KeyboardButton("📋 Заполнить анкету"))
 
 @dp.message_handler(commands=['start'])
 async def send_welcome(message: types.Message):
-    await message.reply(
-        "👋 Привет! Я CharBot – AI-генератор персонажей.\n"
-        "Выбери, что хочешь сделать:",
-        reply_markup=main_menu
-    )
+    await message.reply("👋 Привет! Я CharBot – AI-генератор персонажей.\n\nКак вы хотите создать персонажа?", reply_markup=main_menu)
 
-@dp.message_handler(lambda message: message.text == "🆕 Создать персонажа")
-async def create_character(message: types.Message):
-    await message.reply("✨ Функция генерации персонажа скоро будет добавлена!")
+@dp.message_handler(lambda message: message.text == "✍ Ввести описание")
+async def create_character_text(message: types.Message):
+    await message.reply("✍ Напишите описание персонажа, и я попробую его сгенерировать!")
 
-@dp.message_handler(lambda message: message.text == "📁 Мои персонажи")
-async def my_characters(message: types.Message):
-    await message.reply("📂 У вас пока нет сохранённых персонажей.")
+@dp.message_handler(lambda message: message.text == "📋 Ответить на вопросы")
+async def start_character_quiz(message: types.Message):
+    await message.reply("📋 Давайте создадим персонажа!\n\nКакой у него пол?", reply_markup=ReplyKeyboardMarkup(resize_keyboard=True)
+                         .add("🚹 Мужской", "🚺 Женский", "❓ Другой"))
 
-@dp.message_handler(lambda message: message.text == "🔑 Подписка")
-async def subscription_info(message: types.Message):
-    await message.reply("💎 Подписка: 5$ в месяц.\n✅ Неограниченные персонажи и вариации.")
+@dp.message_handler(lambda message: message.text in ["🚹 Мужской", "🚺 Женский", "❓ Другой"])
+async def ask_age(message: types.Message):
+    await message.reply("🧑 Какой возраст у персонажа?", reply_markup=ReplyKeyboardMarkup(resize_keyboard=True)
+                         .add("👶 Ребёнок", "🧑 Взрослый", "👴 Пожилой"))
 
-@dp.message_handler(lambda message: message.text == "🌍 Язык")
-async def change_language(message: types.Message):
-    await message.reply("🌎 Функция смены языка скоро появится!")
+# (Здесь можно продолжить остальные вопросы...)
 
-if __name__ == '__main__':
+@dp.message_handler(lambda message: message.text == "Готово")  # Когда пользователь завершит анкету
+async def finish_character_quiz(message: types.Message):
+    await message.reply("✨ Персонаж создан!\n\nХотите уточнить детали?", reply_markup=refine_menu)
+
+@dp.message_handler(lambda message: message.text == "✍ Продолжить уточнения текстом")
+async def refine_character_text(message: types.Message):
+    await message.reply("✍ Напишите дополнительные уточнения о персонаже!")
+
+@dp.message_handler(lambda message: message.text == "📋 Заполнить анкету")
+async def refine_character_quiz(message: types.Message):
+    await start_character_quiz(message)
+
+if __name__ == "__main__":
     executor.start_polling(dp, skip_updates=True)
